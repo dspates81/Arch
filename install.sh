@@ -1,12 +1,15 @@
 #!/bin/bash
 
+timedatectl set-timezone America/New_York
+reflector -c US --verbose -l 15 -n 5 -p http --sort rate --save /etc/pacman.d/mirrorlist
+
 set -e  # Exit on error
 
-# Variables
-disk="/dev/sdX"  # Change this to your disk
-hostname="archlinux"
-username="user"
-password="password"
+# VARIABLES
+DISK="/dev/nvme0n1"   # Replace with your disk
+HOSTNAME="precision-7510"
+USERNAME="justin"
+PASSWORD="3Y5gY66LKy"  # Change this later!
 
 echo "⚡ Arch Linux Installation - Btrfs + Encryption + ZRAM + Timeshift + Qtile ⚡"
 

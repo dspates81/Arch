@@ -36,7 +36,7 @@ echo "[+] Creating Btrfs subvolumes..."
 mount /dev/mapper/main /mnt
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
-btrfs subvolume create /mnt/@loh
+btrfs subvolume create /mnt/@log
 btrfs subvolume create /mnt/@pkg
 btrfs subvolume create /mnt/@var
 btrfs subvolume create /mnt/@snapshots

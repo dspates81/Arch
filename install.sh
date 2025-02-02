@@ -99,7 +99,7 @@ echo "/dev/zram0 none swap sw 0 0" >> /etc/fstab
 
 # 🛠 Install Additional Packages
 echo "[+] Installing utilities..."
-pacman -Sy --noconfirm timeshift openssh nemo iptables-nft ipset acpid man-db \
+pacman -Sy --noconfirm timeshift openssh nemo ipset acpid man-db \
 man-pages texinfo sof-firmware ttf-firacode-nerd alacritty bolt dfu-util libusb glib2-devel 
 
 # 🎨 Install Qtile & Display Manager

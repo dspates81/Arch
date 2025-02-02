@@ -36,7 +36,6 @@ echo "[+] Creating Btrfs subvolumes..."
 mount /dev/mapper/main /mnt
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
-btrfs subvolume create /mnt/@pkg
 btrfs subvolume create /mnt/@var
 btrfs subvolume create /mnt/@snapshots
 umount /mnt
@@ -44,9 +43,8 @@ umount /mnt
 # 5️⃣ Mounting Btrfs Subvolumes
 echo "[+] Mounting Btrfs subvolumes..."
 mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@ /dev/mapper/main /mnt
-mkdir -p /mnt/{boot,home,var,log,pkg.snapshots}
+mkdir -p /mnt/{boot,home,var,.snapshots}
 mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@home /dev/mapper/main /mnt/home
-mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@pkg /dev/mapper/main /mnt/@pkg
 mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@var /dev/mapper/main /mnt/var
 mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@snapshots /dev/mapper/main /mnt/.snapshots
 mount "${DISK}p1" /mnt/boot

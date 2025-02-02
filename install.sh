@@ -44,13 +44,13 @@ umount /mnt
 
 # 5️⃣ Mounting Btrfs Subvolumes
 echo "[+] Mounting Btrfs subvolumes..."
-mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvo=@ /dev/mapper/main /mnt
+mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@ /dev/mapper/main /mnt
 mkdir -p /mnt/{boot,home,var,log,pkg.snapshots}
-mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvo=@home /dev/mapper/main /mnt/home
-mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvo=@log /dev/mapper/main /mnt/@log
-mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvo=@pkg /dev/mapper/main /mnt/@pkg
-mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvo=@var /dev/mapper/main /mnt/var
-mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvo=@snapshots /dev/mapper/main /mnt/.snapshots
+mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@home /dev/mapper/main /mnt/home
+mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@log /dev/mapper/main /mnt/@log
+mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@pkg /dev/mapper/main /mnt/@pkg
+mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@var /dev/mapper/main /mnt/var
+mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@snapshots /dev/mapper/main /mnt/.snapshots
 mount "${DISK}p1" /mnt/boot
 
 # 6️⃣ Install Base System

@@ -108,7 +108,7 @@ pacman -Sy --noconfirm bluez bluez-utils intel-ucode lightdm lightdm-gtk-greeter
 
 # 🛡 Enable Essential Services
 echo "[+] Enabling system services..."
-for service in NetworkManager bluetooth sshd firewalld reflector.timer fstrim.timer acpid btrfsd; do
+for service in NetworkManager bluetooth sshd firewalld reflector.timer fstrim.timer acpid; do
     systemctl enable "\$service"
 done
 

@@ -6,10 +6,10 @@ reflector -c US --verbose -l 15 -n 5 -p http --sort rate --save /etc/pacman.d/mi
 set -e  # Exit on error
 
 # VARIABLES
-DISK="/dev/nvme0n1"   # Replace with your disk
-HOSTNAME="x"
-USERNAME="username"
-PASSWORD="passwd"  # Change this later!
+DISK="/dev/sdX"   # Replace with your disk
+HOSTNAME="archlinux"
+USERNAME="user"
+PASSWORD="password"  # Change this later!
 
 echo "⚡ Arch Linux Installation - Btrfs + Encryption + ZRAM + Timeshift + Qtile ⚡"
 
@@ -36,16 +36,14 @@ echo "[+] Creating Btrfs subvolumes..."
 mount /dev/mapper/cryptroot /mnt
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
-btrfs subvolume create /mnt/@log
-btrfs subvolume create /mnt/@pkg
+btrfs subvolume create /mnt/@var
 btrfs subvolume create /mnt/@snapshots
-btrfs subvolume set-default /mnt/@ /mnt
 umount /mnt
 
 # 5️⃣ Mounting Btrfs Subvolumes
 echo "[+] Mounting Btrfs subvolumes..."
 mount -o noatime,compress=zstd,subvol=@ /dev/mapper/cryptroot /mnt
-mkdir -p /mnt/{boot,home,var,log,pkg,.snapshots}
+mkdir -p /mnt/{boot,home,var,.snapshots}
 mount -o noatime,compress=zstd,subvol=@home /dev/mapper/cryptroot /mnt/home
 mount -o noatime,compress=zstd,subvol=@var /dev/mapper/cryptroot /mnt/var
 mount -o noatime,compress=zstd,subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots

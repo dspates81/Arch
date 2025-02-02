@@ -51,7 +51,7 @@ mount "${DISK}p1" /mnt/boot
 
 # 6️⃣ Install Base System
 echo "[+] Installing base system..."
-pacstrap /mnt base linux linux-firmware btrfs-progs sudo nano
+pacstrap /mnt --noconfirm base-devel linux-lts linux-lts-headers linux-firmware btrfs-progs grub-btrfs bluez-utils pipewire alsa-utils pipewire pipewire-pulse pipewire-jack sudo nano
 
 # 7️⃣ Generate fstab
 echo "[+] Generating fstab..."
@@ -70,7 +70,7 @@ echo "127.0.1.1   $HOSTNAME" >> /etc/hosts
 
 # 9️⃣ Install Bootloader (GRUB)
 echo "[+] Installing bootloader..."
-pacman -Sy --noconfirm base-devel linux-lts linux-lts-headers linux-firmware btrfs-progs grub efibootmgr mtools networkmanager network-manager-applet openssh sudo git iptables-nft ipset firewalld reflector acpid grub-btrfs zram-generator man-db man-pages texinfo bluez bluez-utils pipewire alsa-utils pipewire pipewire-pulse pipewire-jack sof-firmware ttf-firacode-nerd alacritty efibootmgr dosfstools intel-ucode qtile xorg-server lightdm lightdm-gtk-greeter bolt dfu-util libusb glib2-devel 
+pacman -Sy --noconfirm grub efibootmgr mtools networkmanager network-manager-applet
 grub-install --target=x86_64-efi --uefi-directory=/boot --bootloader-id=GRUB --recheck
 echo 'GRUB_CMDLINE_LINUX="cryptdevice=/dev/nvme0n1p2:main root=/dev/mapper/main"' >> /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg
@@ -82,6 +82,21 @@ useradd -m -G wheel -s /bin/bash $USERNAME
 echo "$USERNAME:$PASSWORD" | chpasswd
 echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers
 
+# 🏠 ZRAM Setup
+echo "[+] Configuring ZRAM..."
+echo "zram" > /etc/modules-load.d/zram.conf
+echo "options zram num_devices=1" > /etc/modprobe.d/zram.conf
+echo "KERNEL==\"zram0\", ATTR{disksize}=\"2G\", RUN=\"/sbin/mkswap /dev/zram0\", TAG+=\"systemd\"" > /etc/udev/rules.d/99-zram.rules
+echo "/dev/zram0 none swap sw 0 0" >> /etc/fstab
+
+# 🛡 Install Timeshift
+echo "[+] Installing Timeshift..."
+pacman -Sy --noconfirm timeshift openssh git iptables-nft ipset firewalld reflector acpid  zram-generator man-db man-pages texinfo bluez sof-firmware ttf-firacode-nerd alacritty efibootmgr dosfstools intel-ucode qtile xorg-server lightdm lightdm-gtk-greeter bolt dfu-util libusb glib2-devel 
+
+# 🎨 Install Qtile
+echo "[+] Installing Qtile..."
+pacman -Sy --noconfirm xorg-server qtile alacritty rofi feh
+
 # 🛠 Enable Services
 echo "[+] Enabling services..."
 systemctl enable NetworkManager
@@ -92,21 +107,6 @@ systemctl enable reflector.timer
 systemctl enable fstrim.timer
 systemctl enable acpid
 systemctl enable btrfsd
-
-# 🏠 ZRAM Setup
-echo "[+] Configuring ZRAM..."
-echo "zram" > /etc/modules-load.d/zram.conf
-echo "options zram num_devices=1" > /etc/modprobe.d/zram.conf
-echo "KERNEL==\"zram0\", ATTR{disksize}=\"2G\", RUN=\"/sbin/mkswap /dev/zram0\", TAG+=\"systemd\"" > /etc/udev/rules.d/99-zram.rules
-echo "/dev/zram0 none swap sw 0 0" >> /etc/fstab
-
-# 🛡 Install Timeshift
-echo "[+] Installing Timeshift..."
-pacman -Sy --noconfirm timeshift
-
-# 🎨 Install Qtile
-echo "[+] Installing Qtile..."
-pacman -Sy --noconfirm xorg-server qtile alacritty rofi feh
 
 # 🎯 Done!
 EOF

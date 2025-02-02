@@ -7,9 +7,9 @@ set -e  # Exit on error
 
 # VARIABLES
 DISK="/dev/nvme0n1"   # Replace with your disk
-HOSTNAME="precision-7510"
-USERNAME="justin"
-PASSWORD="3Y5gY66LKy"  # Change this later!
+HOSTNAME="x"
+USERNAME="username"
+PASSWORD="passwd"  # Change this later!
 
 echo "⚡ Arch Linux Installation - Btrfs + Encryption + ZRAM + Timeshift + Qtile ⚡"
 

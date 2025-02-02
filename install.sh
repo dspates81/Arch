@@ -6,7 +6,7 @@ reflector -c US --verbose -l 15 -n 5 -p http --sort rate --save /etc/pacman.d/mi
 set -e  # Exit on error
 
 # VARIABLES
-DISK="/dev/sdX"   # Replace with your disk
+DISK="/dev/nvme0n1"   # Replace with your disk
 HOSTNAME="archlinux"
 USERNAME="user"
 PASSWORD="password"  # Change this later!
@@ -24,34 +24,38 @@ parted -s $DISK mkpart primary ext4 512MiB 100%
 # 2️⃣ Encryption (LUKS)
 echo "[+] Setting up LUKS encryption..."
 cryptsetup luksFormat "${DISK}p2"
-cryptsetup open "${DISK}p2" cryptroot
+cryptsetup open "${DISK}p2" main
 
 # 3️⃣ Formatting Partitions
 echo "[+] Formatting partitions..."
 mkfs.fat -F32 "${DISK}p1"
-mkfs.btrfs -f /dev/mapper/cryptroot
+mkfs.btrfs -f /dev/mapper/main
 
 # 4️⃣ Btrfs Subvolumes
 echo "[+] Creating Btrfs subvolumes..."
-mount /dev/mapper/cryptroot /mnt
+mount /dev/mapper/main /mnt
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
+btrfs subvolume create /mnt/@loh
+btrfs subvolume create /mnt/@pkg
 btrfs subvolume create /mnt/@var
 btrfs subvolume create /mnt/@snapshots
 umount /mnt
 
 # 5️⃣ Mounting Btrfs Subvolumes
 echo "[+] Mounting Btrfs subvolumes..."
-mount -o noatime,compress=zstd,subvol=@ /dev/mapper/cryptroot /mnt
-mkdir -p /mnt/{boot,home,var,.snapshots}
-mount -o noatime,compress=zstd,subvol=@home /dev/mapper/cryptroot /mnt/home
-mount -o noatime,compress=zstd,subvol=@var /dev/mapper/cryptroot /mnt/var
-mount -o noatime,compress=zstd,subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots
+mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvo=@ /dev/mapper/main /mnt
+mkdir -p /mnt/{boot,home,var,log,pkg.snapshots}
+mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvo=@home /dev/mapper/main /mnt/home
+mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvo=@log /dev/mapper/main /mnt/@log
+mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvo=@pkg /dev/mapper/main /mnt/@pkg
+mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvo=@var /dev/mapper/main /mnt/var
+mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvo=@snapshots /dev/mapper/main /mnt/.snapshots
 mount "${DISK}p1" /mnt/boot
 
 # 6️⃣ Install Base System
 echo "[+] Installing base system..."
-pacstrap /mnt base linux linux-firmware btrfs-progs vim nano
+pacstrap /mnt base linux linux-firmware btrfs-progs sudo nano
 
 # 7️⃣ Generate fstab
 echo "[+] Generating fstab..."
@@ -70,9 +74,9 @@ echo "127.0.1.1   $HOSTNAME" >> /etc/hosts
 
 # 9️⃣ Install Bootloader (GRUB)
 echo "[+] Installing bootloader..."
-pacman -Sy --noconfirm grub efibootmgr dosfstools mtools
-grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
-echo 'GRUB_CMDLINE_LINUX="cryptdevice=/dev/sdXp2:cryptroot root=/dev/mapper/cryptroot"' >> /etc/default/grub
+pacman -Sy --noconfirm base-devel linux-lts linux-lts-headers linux-firmware btrfs-progs grub efibootmgr mtools networkmanager network-manager-applet openssh sudo git iptables-nft ipset firewalld reflector acpid grub-btrfs zram-generator man-db man-pages texinfo bluez bluez-utils pipewire alsa-utils pipewire pipewire-pulse pipewire-jack sof-firmware ttf-firacode-nerd alacritty efibootmgr dosfstools intel-ucode qtile xorg-server lightdm lightdm-gtk-greeter bolt dfu-util libusb glib2-devel 
+grub-install --target=x86_64-efi --uefi-directory=/boot --bootloader-id=GRUB --recheck
+echo 'GRUB_CMDLINE_LINUX="cryptdevice=/dev/nvme0n1p2:main root=/dev/mapper/main"' >> /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg
 
 # 🔟 Set up Users
@@ -85,6 +89,13 @@ echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers
 # 🛠 Enable Services
 echo "[+] Enabling services..."
 systemctl enable NetworkManager
+systemctl enable bluetooth
+systemctl enable sshd
+systemctl enable firewalld
+systemctl enable reflector.timer
+systemctl enable fstrim.timer
+systemctl enable acpid
+systemctl enable btrfsd
 
 # 🏠 ZRAM Setup
 echo "[+] Configuring ZRAM..."

@@ -1,118 +1,68 @@
 #!/bin/bash
 
-set -e  # Exit script immediately on any error
+# Script to setup Btrfs subvolumes on a new partition.
+# Requires root privileges.
 
-# Configurable Variables
-DISK="/dev/nvme0n1"   # Adjust as needed
-HOSTNAME="archlinux"
-USERNAME="user"
-PASSWORD="password"  # CHANGE THIS AFTER INSTALLATION!
+set -e # Exit on error
 
-echo "⚡ Arch Linux Installation - Btrfs + Encryption + ZRAM + Timeshift + Qtile ⚡"
+# Configuration
+DEVICE="/dev/sdX" # Replace with your target device (e.g., /dev/sda)
+MOUNT_POINT="/mnt/btrfs"
+ROOT_SUBVOLUME="root"
+HOME_SUBVOLUME="home"
+VAR_SUBVOLUME="var"
+LOG_SUBVOLUME="log"
+CACHE_SUBVOLUME="cache"
 
-# 1️⃣ Set Timezone & Update Mirrors
-echo "[+] Setting timezone..."
-timedatectl set-timezone America/New_York
+# Check for root privileges
+if [[ $EUID -ne 0 ]]; then
+  echo "This script requires root privileges. Please run as root."
+  exit 1
+fi
 
-echo "[+] Updating mirrorlist..."
-reflector -c US --verbose -l 15 -n 5 -p http --sort rate --save /etc/pacman.d/mirrorlist
+# Check if the device exists
+if [[ ! -b "$DEVICE" ]]; then
+  echo "Device $DEVICE not found."
+  exit 1
+fi
 
-# 2️⃣ Disk Partitioning (UEFI)
-echo "[+] Partitioning $DISK..."
-wipefs --all --force "$DISK"
-parted -s "$DISK" mklabel gpt
-parted -s "$DISK" mkpart ESP fat32 1MiB 512MiB
-parted -s "$DISK" set 1 esp on
-parted -s "$DISK" mkpart primary ext4 512MiB 100%
+# Partition the disk (Example: using parted. Adjust as needed)
+echo "Partitioning the disk..."
+parted -s "$DEVICE" mklabel gpt
+parted -s "$DEVICE" mkpart primary btrfs 0% 100%
+PARTITION="${DEVICE}1" # Assumes the first partition is the Btrfs partition.
 
-# 3️⃣ LUKS Encryption Setup
-echo "[+] Configuring LUKS encryption..."
-cryptsetup luksFormat "${DISK}p2"
-cryptsetup open "${DISK}p2" main
+# Create the Btrfs filesystem
+echo "Creating Btrfs filesystem..."
+mkfs.btrfs -L "btrfs-root" "$PARTITION"
 
-# 4️⃣ Formatting Partitions
-echo "[+] Formatting partitions..."
-mkfs.fat -F32 "${DISK}p1"
-mkfs.btrfs -f /dev/mapper/main
+# Mount the Btrfs filesystem
+echo "Mounting the Btrfs filesystem..."
+mkdir -p "$MOUNT_POINT"
+mount "$PARTITION" "$MOUNT_POINT"
 
-# 5️⃣ Creating Btrfs Subvolumes
-echo "[+] Creating Btrfs subvolumes..."
-mount /dev/mapper/main /mnt
-for subvol in @ @home @var @snapshots; do
-    btrfs subvolume create "/mnt/$subvol"
-done
-umount /mnt
+# Create subvolumes
+echo "Creating subvolumes..."
+btrfs subvolume create "$MOUNT_POINT/$ROOT_SUBVOLUME"
+btrfs subvolume create "$MOUNT_POINT/$HOME_SUBVOLUME"
+btrfs subvolume create "$MOUNT_POINT/$VAR_SUBVOLUME"
+btrfs subvolume create "$MOUNT_POINT/$LOG_SUBVOLUME"
+btrfs subvolume create "$MOUNT_POINT/$CACHE_SUBVOLUME"
 
-# 6️⃣ Mounting Btrfs Subvolumes
-echo "[+] Mounting subvolumes..."
-mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@ /dev/mapper/main /mnt
-mkdir -p /mnt/{boot,home,var,.snapshots}
-mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@home /dev/mapper/main /mnt/home
-mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@var /dev/mapper/main /mnt/var
-mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@snapshots /dev/mapper/main /mnt/.snapshots
-mount "${DISK}p1" /mnt/boot
+# Unmount the filesystem
+umount "$MOUNT_POINT"
 
-# 7️⃣ Install Base System
-echo "[+] Installing base system..."
-pacstrap /mnt --noconfirm base-devel linux-lts linux-lts-headers linux-firmware \
-pipewire alsa-utils pipewire-pulse pipewire-jack sudo nano openssh zram-generator \
-firewalld reflector 
+# Generate fstab entries (Example. Adapt to your needs)
+echo "Generating fstab entries..."
+echo "UUID=$(blkid -o value -s UUID "$PARTITION") / btrfs subvol=$ROOT_SUBVOLUME,defaults,noatime,compress=zstd 0 1" >> /etc/fstab
+echo "UUID=$(blkid -o value -s UUID "$PARTITION") /home btrfs subvol=$HOME_SUBVOLUME,defaults,noatime,compress=zstd 0 2" >> /etc/fstab
+echo "UUID=$(blkid -o value -s UUID "$PARTITION") /var btrfs subvol=$VAR_SUBVOLUME,defaults,noatime,compress=zstd 0 2" >> /etc/fstab
+echo "UUID=$(blkid -o value -s UUID "$PARTITION") /var/log btrfs subvol=$LOG_SUBVOLUME,defaults,noatime,compress=zstd 0 2" >> /etc/fstab
+echo "UUID=$(blkid -o value -s UUID "$PARTITION") /var/cache btrfs subvol=$CACHE_SUBVOLUME,defaults,noatime,compress=zstd 0 2" >> /etc/fstab
 
-# 8️⃣ Generate fstab
-echo "[+] Generating fstab..."
-genfstab -U /mnt >> /mnt/etc/fstab
+echo "Btrfs subvolume setup complete."
 
-# 9️⃣ Configure System Inside Chroot
-echo "[+] Configuring system inside chroot..."
-arch-chroot /mnt /bin/bash <<EOF
-set -e  # Exit on error
-
-echo "$HOSTNAME" > /etc/hostname
-ln -sf /usr/share/zoneinfo/\$(curl -s https://ipapi.co/timezone) /etc/localtime
-hwclock --systohc
-echo "LANG=en_US.UTF-8" > /etc/locale.conf
-echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
-locale-gen
-echo "127.0.1.1   $HOSTNAME" >> /etc/hosts
-
-# 🔥 Install Bootloader (GRUB)
-echo "[+] Installing GRUB..."
-pacman -Sy --noconfirm grub efibootmgr mtools dosfstools btrfs-progs grub-btrfs networkmanager network-manager-applet
-grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB --recheck
-echo 'GRUB_CMDLINE_LINUX="cryptdevice=${DISK}p2:main root=/dev/mapper/main"' >> /etc/default/grub
-grub-mkconfig -o /boot/grub/grub.cfg
-mkinitcpio -P
-
-# 🏠 Create User & Set Passwords
-echo "[+] Creating user: $USERNAME"
-echo "root:$PASSWORD" | chpasswd
-useradd -m -G wheel -s /bin/bash "$USERNAME"
-echo "$USERNAME:$PASSWORD" | chpasswd
-echo "%wheel ALL=(ALL:ALL) ALL" >> /etc/sudoers
-
-# 🚀 ZRAM Setup
-echo "[+] Configuring ZRAM..."
-echo "zram" > /etc/modules-load.d/zram.conf
-echo "options zram num_devices=1" > /etc/modprobe.d/zram.conf
-echo 'KERNEL=="zram0", ATTR{disksize}="2G", RUN+="/sbin/mkswap /dev/zram0", TAG+="systemd"' > /etc/udev/rules.d/99-zram.rules
-echo "/dev/zram0 none swap sw 0 0" >> /etc/fstab
-
-# 🛠 Install Additional Packages
-echo "[+] Installing utilities..."
-pacman -Sy --noconfirm timeshift openssh nemo ipset acpid man-db \
-man-pages texinfo sof-firmware ttf-firacode-nerd alacritty bolt dfu-util libusb glib2-devel 
-
-# 🎨 Install Qtile & Display Manager
-echo "[+] Installing Qtile & display manager..."
-pacman -Sy --noconfirm bluez bluez-utils intel-ucode lightdm lightdm-gtk-greeter xorg-server qtile alacritty rofi feh
-
-# 🛡 Enable Essential Services
-echo "[+] Enabling system services..."
-for service in NetworkManager bluetooth sshd firewalld reflector.timer fstrim.timer acpid; do
-    systemctl enable "\$service"
-done
-
-echo "[✅] Installation completed inside chroot!"
-EOF
-
-echo "✅ Installation complete! You may now reboot."
+# Important next steps:
+# 1. Boot from a live environment, and copy your system to the root subvolume.
+# 2. Configure your bootloader (GRUB) to boot from the root subvolume.
+# 3. Reboot into your new Btrfs system.
